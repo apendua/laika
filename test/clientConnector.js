@@ -13,6 +13,7 @@ var phantom;
 
 suite('ClientConnector', function() {
   test('run in client and get result', function(done) {
+    this.timeout(20000);
     var port = helpers.getRandomPort();
     var server = createHttpServer(port);
     var cc;
