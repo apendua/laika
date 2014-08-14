@@ -81,7 +81,7 @@ module.exports = {
         throw err;
       } else {
         phantom = ph;
-        phantom.process.stdout.on('data', onPhantomLogs);
+        //phantom.process.stdout.on('data', onPhantomLogs);
         phantom.process.stderr.on('data', onPhantomLogs);
         deps.tick();
       }
@@ -242,7 +242,7 @@ module.exports = {
         logger.info('  cleaning up injected code\n');
         injector.clean();
 
-        phantom.process.stdout.removeListener('data', onPhantomLogs);
+        //phantom.process.stdout.removeListener('data', onPhantomLogs);
         phantom.process.stderr.removeListener('data', onPhantomLogs);
         phantom.exit();
 
