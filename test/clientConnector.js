@@ -2,14 +2,13 @@ var assert = require('assert');
 var path = require('path');
 var fs = require('fs');
 var http = require('http');
-var Phantom = require('node-phantom-simple');
+var startWebDriver = require('../lib/phantom');
 var helpers = require('../lib/helpers');
 var ClientConnector = require('../lib/connectors/client.js');
 var Fiber = require('fibers');
 
 var CLIENT_TEMPLATE_LOCATION = path.resolve(__dirname, '../lib/injector/templates/client.js');
 var clientCode = fs.readFileSync(CLIENT_TEMPLATE_LOCATION, 'utf8');
-var phantom;
 
 suite('ClientConnector', function() {
   test('run in client and get result', function(done) {
@@ -17,8 +16,8 @@ suite('ClientConnector', function() {
     var port = helpers.getRandomPort();
     var server = createHttpServer(port);
     var cc;
-    getPhantom(function(phantom) {
-      cc = new ClientConnector(phantom, 'http://localhost:' + port);
+    getPhantom(function(webDriverUrl) {
+      cc = new ClientConnector(webDriverUrl, 'http://localhost:' + port);
       cc.eval(function() {
         emit('result', 10);
       });
@@ -36,8 +35,8 @@ suite('ClientConnector', function() {
     var port = helpers.getRandomPort();
     var server = createHttpServer(port);
     var cc;
-    getPhantom(function(phantom) {
-      cc = new ClientConnector(phantom, 'http://localhost:' + port);
+    getPhantom(function(webDriverUrl) {
+      cc = new ClientConnector(webDriverUrl, 'http://localhost:' + port);
       cc.eval(function() {
         emit('result', 10, undefined, 20);
       });
@@ -57,8 +56,8 @@ suite('ClientConnector', function() {
     var port = helpers.getRandomPort();
     var server = createHttpServer(port);
     var cc;
-    getPhantom(function(phantom) {
-      cc = new ClientConnector(phantom, 'http://localhost:' + port);
+    getPhantom(function(webDriverUrl) {
+      cc = new ClientConnector(webDriverUrl, 'http://localhost:' + port);
       cc.eval(function() {
         emit('result', false, 10);
       });
@@ -77,8 +76,8 @@ suite('ClientConnector', function() {
     var port = helpers.getRandomPort();
     var server = createHttpServer(port);
     var cc;
-    getPhantom(function(phantom) {
-      cc = new ClientConnector(phantom, 'http://localhost:' + port);
+    getPhantom(function(webDriverUrl) {
+      cc = new ClientConnector(webDriverUrl, 'http://localhost:' + port);
       cc.eval(function() {
         emit('result', 10);
       });
@@ -97,8 +96,8 @@ suite('ClientConnector', function() {
     var port = helpers.getRandomPort();
     var server = createHttpServer(port);
     var cc;
-    getPhantom(function(phantom) {
-      cc = new ClientConnector(phantom, 'http://localhost:' + port);
+    getPhantom(function(webDriverUrl) {
+      cc = new ClientConnector(webDriverUrl, 'http://localhost:' + port);
       cc.eval(function() {
         setTimeout(function() {
           emit('result', 120);
@@ -118,8 +117,8 @@ suite('ClientConnector', function() {
     var port = helpers.getRandomPort();
     var server = createHttpServer(port);
     var cc;
-    getPhantom(function(phantom) {
-      cc = new ClientConnector(phantom, 'http://localhost:' + port);
+    getPhantom(function(webDriverUrl) {
+      cc = new ClientConnector(webDriverUrl, 'http://localhost:' + port);
       cc.eval(function(a, b) {
         emit('result', a + b);
       }, 100, 200);
@@ -137,9 +136,9 @@ suite('ClientConnector', function() {
     var port = helpers.getRandomPort();
     var server = createHttpServer(port);
     var cc;
-    getPhantom(function(phantom) {
+    getPhantom(function(webDriverUrl) {
       Fiber(function() {
-        cc = new ClientConnector(phantom, 'http://localhost:' + port);
+        cc = new ClientConnector(webDriverUrl, 'http://localhost:' + port);
         var result = cc.evalSync(function() {
           emit('return', 10);
         });
@@ -156,8 +155,8 @@ suite('ClientConnector', function() {
     var port = helpers.getRandomPort();
     var server = createHttpServer(port);
     var cc;
-    getPhantom(function(phantom) {
-      cc = new ClientConnector(phantom, 'http://localhost:' + port);
+    getPhantom(function(webDriverUrl) {
+      cc = new ClientConnector(webDriverUrl, 'http://localhost:' + port);
       cc.eval(function() {
         throw new Error('dsdsd');
         emit('result', 10);
@@ -179,8 +178,8 @@ suite('ClientConnector', function() {
     var port = helpers.getRandomPort();
     var server = createHttpServer(port);
     var cc;
-    getPhantom(function(phantom) {
-      cc = new ClientConnector(phantom, 'http://localhost:' + port);
+    getPhantom(function(webDriverUrl) {
+      cc = new ClientConnector(webDriverUrl, 'http://localhost:' + port);
       cc.eval(function() {
         throw new Error('simulating the effect dsdsd');
         emit('result', 10);
@@ -200,27 +199,55 @@ suite('ClientConnector', function() {
     })
   });
 
+  test('wait one second ...', function (done) {
+    var port = helpers.getRandomPort();
+    var server = createHttpServer(port);
+    var cc;
+    getPhantom(function(webDriverUrl) {
+      cc = new ClientConnector(webDriverUrl, 'http://localhost:' + port);
+      cc.eval(function() {
+        setTimeout(function () {
+          emit('done');
+        }, 1000);
+      });
+      cc.once('done', function() {
+        done();
+      });
+    });
+  });
+
   test('**to kill phantom js**', function() {
-    phantom._phantom.kill();
+    getPhantom(function (webDriverUrl, phantom) {
+      phantom && phantom.kill();
+    });
   });
 })
 
-function getPhantom(callback) {
-  if(phantom) {
-    callback(phantom);
-  } else {
-    Phantom.create(afterCreated);
-  }
+var getPhantom = (function () {
+  var webDriverUrl;
+  var phantom;
+  var queue = [];
 
-  function afterCreated(err, ph) {
-    phantom = ph;
-    if(err) {
-      throw err;
+  return function getPhantom(callback) {
+    if (webDriverUrl) {
+      callback(webDriverUrl, phantom);
     } else {
-      callback(phantom);
+      if (!phantom) {
+        phantom = startWebDriver(helpers.getRandomPort(), afterCreated);
+      }
+      callback && queue.push(callback);
+    }
+    function afterCreated(err, url) {
+      webDriverUrl = url;
+      if (err) {
+        throw err;
+      }
+      while (queue.length) {
+        queue.pop()(webDriverUrl, phantom);
+      }
     }
   }
-}
+}());
 
 function createHttpServer(port) {
   var server = http.createServer(function(req, res) {
