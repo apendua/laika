@@ -152,7 +152,7 @@ module.exports = {
         // define before/after hooks
         before(function (done) {
           app = appPool.get();
-          setupApp(app, phantom, clientOptions, function () {
+          setupApp(app, webDriverUrl, clientOptions, function () {
             connectors = Array.prototype.slice.call(arguments);
             callback.apply(null, arguments);
             done();
