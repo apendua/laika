@@ -25,7 +25,7 @@ var ended = false;
 module.exports = {
   run: function(argv) {
 
-    var webDriverUrl;
+    var webDriverUrl = argv.webdriver;
 
     if(argv.debug) {
       logger.log('\n  NOTICE: '.yellow + 'if you are looking for debug logs(-d or -D), use -V instead'.bold);
@@ -66,12 +66,17 @@ module.exports = {
       injector.inject();
       App.touch(deps.tick.bind(deps), {mongoPort: argv.mport});
 
-      logger.info('  loading phantomjs...');
+      if (!webDriverUrl) {
+        logger.info('  loading phantomjs...');
 
-      phantom = startWebDriver(function (err, _webDriverUrl) {
-        webDriverUrl = _webDriverUrl;
-        afterPhantomCreated(err);
-      });
+        phantom = startWebDriver(function (err, _webDriverUrl) {
+          webDriverUrl = _webDriverUrl;
+          afterPhantomCreated(err);
+        });
+      } else {
+        logger.info('  using webdriver at ' + webDriverUrl + '...');
+        afterPhantomCreated();
+      }
 
       //make sure this get ended everytime
       process.once('exit', function() {
@@ -84,8 +89,8 @@ module.exports = {
         logger.error('  please install phantomjs to countinue');
         throw err;
       } else {
-        phantom.stdout.on('data', onPhantomLogs);
-        phantom.stderr.on('data', onPhantomLogs);
+        phantom && phantom.stdout.on('data', onPhantomLogs);
+        phantom && phantom.stderr.on('data', onPhantomLogs);
         deps.tick();
       }
     }
@@ -245,9 +250,9 @@ module.exports = {
         logger.info('  cleaning up injected code\n');
         injector.clean();
 
-        phantom.stdout.removeListener('data', onPhantomLogs);
-        phantom.stderr.removeListener('data', onPhantomLogs);
-        phantom.kill('SIGINT');
+        phantom && phantom.stdout.removeListener('data', onPhantomLogs);
+        phantom && phantom.stderr.removeListener('data', onPhantomLogs);
+        phantom && phantom.kill('SIGINT');
 
         appPool.close(function() {
           process.exit(exitCode);
