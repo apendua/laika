@@ -166,7 +166,9 @@ module.exports = {
         });
         after(function (done) {
           async.map(connectors, function (connector, cb) {
-            connector.close(cb);
+            connector.close(function () {
+              setTimeout(cb, 1000);
+            });
           }, function (err) {
             app.close();
             done(err);
