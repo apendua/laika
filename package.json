@@ -6,7 +6,7 @@
     "async": "^0.9.0",
     "colors": "0.6.x",
     "commander": "2.0.x",
-    "fibers": "1.0.3",
+    "fibers": "laverdet/node-fibers#master",
     "glob": "3.2.3",
     "handlebars": "1.0.x",
     "mkdirp": "0.3.x",
